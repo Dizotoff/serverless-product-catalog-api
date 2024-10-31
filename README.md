@@ -1,6 +1,4 @@
-# Serverless product catalog api
-
-Build on top AWS Lambda, API Gateway, DynamoDB using Serverless framework
+# This is not a documentation.
 
 Frequently used commands:
 
