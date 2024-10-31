@@ -2,6 +2,9 @@
   "name": "serverless-product-catalog-api",
   "version": "1.0.0",
   "description": "",
+  "scripts": {
+    "dev": "nodemon"
+  },
   "dependencies": {
     "@aws-sdk/client-dynamodb": "^3.585.0",
     "@aws-sdk/lib-dynamodb": "^3.585.0",
@@ -9,6 +12,7 @@
     "serverless-http": "^3.2.0"
   },
   "devDependencies": {
+    "nodemon": "^3.1.7",
     "serverless-offline": "^14.3.3"
   }
 }

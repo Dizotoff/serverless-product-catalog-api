@@ -1,0 +1,6 @@
+{
+  "watch": ["./**/*.js", "./**/*.ts", "serverless.yml"],
+  "ext": "js,ts,yml",
+  "ignore": ["node_modules"],
+  "exec": "serverless offline --stage local"
+}

@@ -1,80 +1,77 @@
 const { DynamoDBClient } = require("@aws-sdk/client-dynamodb");
-const {
-  DynamoDBDocumentClient,
-  GetCommand,
-  PutCommand,
-} = require("@aws-sdk/lib-dynamodb");
-const express = require("express");
-const serverless = require("serverless-http");
+const { DynamoDBDocumentClient, GetCommand, PutCommand } = require("@aws-sdk/lib-dynamodb");
 
-const app = express();
+const PRODUCTS_TABLE = process.env.PRODUCTS_TABLE;
+const IS_OFFLINE = process.env.IS_OFFLINE === "true";
 
-const USERS_TABLE = process.env.USERS_TABLE;
-const isOffline = process.env.IS_OFFLINE === "true";
 // Configure the DynamoDB client to connect to DynamoDB Local when offline
 const client = new DynamoDBClient({
   region: "us-east-1",
-  endpoint: isOffline ? "http://localhost:8000" : undefined,
+  endpoint: IS_OFFLINE ? "http://localhost:8000" : undefined,
 });
-
 
 const docClient = DynamoDBDocumentClient.from(client);
 
-app.use(express.json());
+exports.getProductById = async (event) => {
+  const productId = event.pathParameters.productId;
 
-// GET /users/:userId - Retrieve user by ID
-app.get("/users/:userId", async (req, res) => {
   const params = {
-    TableName: USERS_TABLE,
-    Key: {
-      userId: req.params.userId,
-    },
+    TableName: PRODUCTS_TABLE,
+    Key: { productId },
   };
 
   try {
     const command = new GetCommand(params);
     const { Item } = await docClient.send(command);
+
     if (Item) {
-      const { userId, name } = Item;
-      res.json({ userId, name });
+      return {
+        statusCode: 200,
+        body: JSON.stringify(Item),
+      };
     } else {
-      res.status(404).json({ error: 'Could not find user with provided "userId"' });
+      return {
+        statusCode: 404,
+        body: JSON.stringify({ error: 'Could not find product with provided "productId"' }),
+      };
     }
   } catch (error) {
-    console.log(error);
-    res.status(500).json({ error: "Could not retrieve user" });
+    console.error(error);
+    return {
+      statusCode: 500,
+      body: JSON.stringify({ error: "Could not retrieve product" }),
+    };
   }
-});
+};
 
-// POST /users - Create a new user
-app.post("/users", async (req, res) => {
-  const { userId, name } = req.body;
-  if (typeof userId !== "string") {
-    return res.status(400).json({ error: '"userId" must be a string' });
-  } else if (typeof name !== "string") {
-    return res.status(400).json({ error: '"name" must be a string' });
+exports.createProduct = async (event) => {
+  const { productId, name } = JSON.parse(event.body);
+
+  if (typeof productId !== "string" || typeof name !== "string") {
+    return {
+      statusCode: 400,
+      body: JSON.stringify({ error: '"productId" and "name" must be strings' }),
+    };
   }
 
-  console.log(1, USERS_TABLE, isOffline)
   const params = {
-    TableName: USERS_TABLE,
-    Item: { userId, name },
+    TableName: PRODUCTS_TABLE,
+    Item: { productId, name },
   };
 
   try {
     const command = new PutCommand(params);
     await docClient.send(command);
-    res.json({ userId, name });
+
+    return {
+      statusCode: 201,
+      body: JSON.stringify({ productId, name }),
+    };
   } catch (error) {
     console.error(error);
-    res.status(500).json({ error: "Could not create user" });
+    return {
+      statusCode: 500,
+      body: JSON.stringify({ error: "Could not create product" }),
+    };
   }
-});
-
-// Default 404 handler for unmatched routes
-app.use((req, res) => {
-  res.status(404).json({ error: "Not Found" });
-});
-
-// Export the handler for Serverless
-exports.handler = serverless(app);
+};

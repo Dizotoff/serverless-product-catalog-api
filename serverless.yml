@@ -8,7 +8,7 @@ service: serverless-product-catalog-api
 stages:
   default:
     params:
-      tableName: "users-table-${sls:stage}"
+      tableName: "products-table-${sls:stage}"
 
 provider:
   name: aws
@@ -25,27 +25,35 @@ provider:
             - dynamodb:UpdateItem
             - dynamodb:DeleteItem
           Resource:
-            - Fn::GetAtt: [UsersTable, Arn]
+            - Fn::GetAtt: [ProductsTable, Arn]
   environment:
-    USERS_TABLE: ${self:custom.tableName.${opt:stage, 'dev'}}
+    PRODUCTS_TABLE: ${self:custom.tableName.${opt:stage, 'dev'}}
     IS_OFFLINE: "${opt:stage, 'dev'}` == 'local' ? 'true' : 'false'"
 
 functions:
-  api:
-    handler: handler.handler
+  getProductById:
+    handler: handler.getProductById
     events:
-      - httpApi: "*"
+      - http:
+          path: products/{productId}
+          method: get
+  createProduct:
+    handler: handler.createProduct
+    events:
+      - http:
+          path: products
+          method: post
 
 resources:
   Resources:
-    UsersTable:
+    ProductsTable:
       Type: AWS::DynamoDB::Table
       Properties:
         AttributeDefinitions:
-          - AttributeName: userId
+          - AttributeName: productId
             AttributeType: S
         KeySchema:
-          - AttributeName: userId
+          - AttributeName: productId
             KeyType: HASH
         BillingMode: PAY_PER_REQUEST
         TableName: ${param:tableName}
@@ -55,6 +63,6 @@ plugins:
 
 custom:
   tableName:
-    dev: users-table-dev # Table name for development (cloud)
-    prod: users-table-prod # Table name for production (cloud)
-    local: users-table-local # Table name for local development
+    dev: products-table-dev # Table name for development (cloud)
+    prod: products-table-prod # Table name for production (cloud)
+    local: products-table-local # Table name for local development
