@@ -3,7 +3,8 @@
   "version": "1.0.0",
   "description": "",
   "scripts": {
-    "dev": "nodemon"
+    "dev": "nodemon",
+    "test": "jest"
   },
   "dependencies": {
     "@aws-sdk/client-dynamodb": "^3.585.0",
@@ -12,7 +13,9 @@
     "serverless-http": "^3.2.0"
   },
   "devDependencies": {
+    "jest": "^29.7.0",
     "nodemon": "^3.1.7",
-    "serverless-offline": "^14.3.3"
+    "serverless-offline": "^14.3.3",
+    "supertest": "^7.0.0"
   }
 }

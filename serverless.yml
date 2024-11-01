@@ -13,19 +13,6 @@ stages:
 provider:
   name: aws
   runtime: nodejs20.x
-  iam:
-    role:
-      statements:
-        - Effect: Allow
-          Action:
-            - dynamodb:Query
-            - dynamodb:Scan
-            - dynamodb:GetItem
-            - dynamodb:PutItem
-            - dynamodb:UpdateItem
-            - dynamodb:DeleteItem
-          Resource:
-            - Fn::GetAtt: [ProductsTable, Arn]
   environment:
     PRODUCTS_TABLE: ${self:custom.tableName.${opt:stage, 'dev'}}
     IS_OFFLINE: "${opt:stage, 'dev'}` == 'local' ? 'true' : 'false'"
@@ -37,12 +24,31 @@ functions:
       - http:
           path: products/{productId}
           method: get
+    role: GetProductRole
+
   createProduct:
     handler: handler.createProduct
     events:
       - http:
           path: products
           method: post
+    role: CreateProductRole
+
+  updateProduct:
+    handler: handler.updateProduct
+    events:
+      - http:
+          path: products/{productId}
+          method: put
+    role: UpdateProductRole
+
+  deleteProduct:
+    handler: handler.deleteProduct
+    events:
+      - http:
+          path: products/{productId}
+          method: delete
+    role: DeleteProductRole
 
 resources:
   Resources:
@@ -57,6 +63,90 @@ resources:
             KeyType: HASH
         BillingMode: PAY_PER_REQUEST
         TableName: ${param:tableName}
+
+    GetProductRole:
+      Type: AWS::IAM::Role
+      Properties:
+        AssumeRolePolicyDocument:
+          Version: "2012-10-17"
+          Statement:
+            - Effect: Allow
+              Principal:
+                Service: lambda.amazonaws.com
+              Action: sts:AssumeRole
+        Policies:
+          - PolicyName: GetProductPolicy
+            PolicyDocument:
+              Version: "2012-10-17"
+              Statement:
+                - Effect: Allow
+                  Action:
+                    - dynamodb:GetItem
+                  Resource:
+                    - Fn::GetAtt: [ProductsTable, Arn]
+
+    CreateProductRole:
+      Type: AWS::IAM::Role
+      Properties:
+        AssumeRolePolicyDocument:
+          Version: "2012-10-17"
+          Statement:
+            - Effect: Allow
+              Principal:
+                Service: lambda.amazonaws.com
+              Action: sts:AssumeRole
+        Policies:
+          - PolicyName: CreateProductPolicy
+            PolicyDocument:
+              Version: "2012-10-17"
+              Statement:
+                - Effect: Allow
+                  Action:
+                    - dynamodb:PutItem
+                  Resource:
+                    - Fn::GetAtt: [ProductsTable, Arn]
+
+    UpdateProductRole:
+      Type: AWS::IAM::Role
+      Properties:
+        AssumeRolePolicyDocument:
+          Version: "2012-10-17"
+          Statement:
+            - Effect: Allow
+              Principal:
+                Service: lambda.amazonaws.com
+              Action: sts:AssumeRole
+        Policies:
+          - PolicyName: UpdateProductPolicy
+            PolicyDocument:
+              Version: "2012-10-17"
+              Statement:
+                - Effect: Allow
+                  Action:
+                    - dynamodb:UpdateItem
+                  Resource:
+                    - Fn::GetAtt: [ProductsTable, Arn]
+
+    DeleteProductRole:
+      Type: AWS::IAM::Role
+      Properties:
+        AssumeRolePolicyDocument:
+          Version: "2012-10-17"
+          Statement:
+            - Effect: Allow
+              Principal:
+                Service: lambda.amazonaws.com
+              Action: sts:AssumeRole
+        Policies:
+          - PolicyName: DeleteProductPolicy
+            PolicyDocument:
+              Version: "2012-10-17"
+              Statement:
+                - Effect: Allow
+                  Action:
+                    - dynamodb:DeleteItem
+                  Resource:
+                    - Fn::GetAtt: [ProductsTable, Arn]
 
 plugins:
   - serverless-offline
