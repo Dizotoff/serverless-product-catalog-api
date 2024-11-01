@@ -100,8 +100,12 @@ resources:
                 - Effect: Allow
                   Action:
                     - dynamodb:GetItem
+                    - logs:CreateLogGroup
+                    - logs:CreateLogStream
+                    - logs:PutLogEvents
                   Resource:
                     - Fn::GetAtt: [ProductsTable, Arn]
+                    - !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/${self:service}-${opt:stage, 'dev'}-getProductById:*"
 
     CreateProductRole:
       Type: AWS::IAM::Role
@@ -121,8 +125,12 @@ resources:
                 - Effect: Allow
                   Action:
                     - dynamodb:PutItem
+                    - logs:CreateLogGroup
+                    - logs:CreateLogStream
+                    - logs:PutLogEvents
                   Resource:
                     - Fn::GetAtt: [ProductsTable, Arn]
+                    - !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/${self:service}-${opt:stage, 'dev'}-createProduct:*"
 
     UpdateProductRole:
       Type: AWS::IAM::Role
@@ -142,8 +150,12 @@ resources:
                 - Effect: Allow
                   Action:
                     - dynamodb:UpdateItem
+                    - logs:CreateLogGroup
+                    - logs:CreateLogStream
+                    - logs:PutLogEvents
                   Resource:
                     - Fn::GetAtt: [ProductsTable, Arn]
+                    - !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/${self:service}-${opt:stage, 'dev'}-updateProduct:*"
 
     DeleteProductRole:
       Type: AWS::IAM::Role
@@ -163,6 +175,9 @@ resources:
                 - Effect: Allow
                   Action:
                     - dynamodb:DeleteItem
+                    - logs:CreateLogGroup
+                    - logs:CreateLogStream
+                    - logs:PutLogEvents
                   Resource:
                     - Fn::GetAtt: [ProductsTable, Arn]
                     - !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/${self:service}-${opt:stage, 'dev'}-deleteProduct:*"
