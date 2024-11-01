@@ -1,5 +1,11 @@
 const { DynamoDBClient } = require("@aws-sdk/client-dynamodb");
-const { DynamoDBDocumentClient, GetCommand, PutCommand, UpdateCommand, DeleteCommand } = require("@aws-sdk/lib-dynamodb");
+const {
+  DynamoDBDocumentClient,
+  GetCommand,
+  PutCommand,
+  UpdateCommand,
+  DeleteCommand,
+} = require("@aws-sdk/lib-dynamodb");
 
 const PRODUCTS_TABLE = process.env.PRODUCTS_TABLE;
 const IS_OFFLINE = process.env.IS_OFFLINE === "true";
@@ -12,7 +18,38 @@ const client = new DynamoDBClient({
 
 const docClient = DynamoDBDocumentClient.from(client);
 
+const verifyUserRole = (event, allowedRoles) => {
+  try {
+    // For local testing
+    if (IS_OFFLINE) {
+      const authHeader = event.headers.Authorization || "";
+      const token = authHeader.split(" ")[1];
+      if (!token) return false;
+
+      const decodedToken = JSON.parse(token);
+      const userRole = decodedToken.claims["custom:custom:role"];
+      return allowedRoles.includes(userRole);
+    }
+
+    // For production Cognito
+    const claims = event.requestContext.authorizer.claims;
+    const userRole = claims["custom:custom:role"];
+    return allowedRoles.includes(userRole);
+  } catch (error) {
+    console.error("Error verifying user role:", error);
+    return false;
+  }
+};
+
 exports.getProductById = async (event) => {
+  // Allow both admin and viewer roles to get products
+  if (!verifyUserRole(event, ["admin", "viewer"])) {
+    return {
+      statusCode: 403,
+      body: JSON.stringify({ error: "Insufficient permissions" }),
+    };
+  }
+
   const productId = event.pathParameters.productId;
 
   const params = {
@@ -32,7 +69,9 @@ exports.getProductById = async (event) => {
     } else {
       return {
         statusCode: 404,
-        body: JSON.stringify({ error: 'Could not find product with provided "productId"' }),
+        body: JSON.stringify({
+          error: 'Could not find product with provided "productId"',
+        }),
       };
     }
   } catch (error) {
@@ -45,6 +84,14 @@ exports.getProductById = async (event) => {
 };
 
 exports.createProduct = async (event) => {
+  // Only allow admin role to create products
+  if (!verifyUserRole(event, ["admin"])) {
+    return {
+      statusCode: 403,
+      body: JSON.stringify({ error: "Insufficient permissions" }),
+    };
+  }
+
   const { productId, name } = JSON.parse(event.body);
 
   if (typeof productId !== "string" || typeof name !== "string") {
@@ -77,6 +124,14 @@ exports.createProduct = async (event) => {
 };
 
 exports.updateProduct = async (event) => {
+  // Only allow admin role to update products
+  if (!verifyUserRole(event, ["admin"])) {
+    return {
+      statusCode: 403,
+      body: JSON.stringify({ error: "Insufficient permissions" }),
+    };
+  }
+
   const { productId } = event.pathParameters;
   const { name } = JSON.parse(event.body);
 
@@ -114,6 +169,14 @@ exports.updateProduct = async (event) => {
 };
 
 exports.deleteProduct = async (event) => {
+  // Only allow admin role to delete products
+  if (!verifyUserRole(event, ["admin"])) {
+    return {
+      statusCode: 403,
+      body: JSON.stringify({ error: "Insufficient permissions" }),
+    };
+  }
+
   const { productId } = event.pathParameters;
 
   const params = {

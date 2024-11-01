@@ -16,6 +16,8 @@ provider:
   environment:
     PRODUCTS_TABLE: ${self:custom.tableName.${opt:stage, 'dev'}}
     IS_OFFLINE: "${opt:stage, 'dev'}` == 'local' ? 'true' : 'false'"
+    USER_POOL_ID: !Ref CognitoUserPool
+    USER_POOL_CLIENT_ID: !Ref CognitoUserPoolClient
 
 functions:
   getProductById:
@@ -24,6 +26,10 @@ functions:
       - http:
           path: products/{productId}
           method: get
+          authorizer:
+            type: COGNITO_USER_POOLS
+            authorizerId: !Ref ApiGatewayAuthorizer
+          cors: true
     role: GetProductRole
 
   createProduct:
@@ -32,6 +38,10 @@ functions:
       - http:
           path: products
           method: post
+          authorizer:
+            type: COGNITO_USER_POOLS
+            authorizerId: !Ref ApiGatewayAuthorizer
+          cors: true
     role: CreateProductRole
 
   updateProduct:
@@ -40,6 +50,10 @@ functions:
       - http:
           path: products/{productId}
           method: put
+          authorizer:
+            type: COGNITO_USER_POOLS
+            authorizerId: !Ref ApiGatewayAuthorizer
+          cors: true
     role: UpdateProductRole
 
   deleteProduct:
@@ -48,6 +62,10 @@ functions:
       - http:
           path: products/{productId}
           method: delete
+          authorizer:
+            type: COGNITO_USER_POOLS
+            authorizerId: !Ref ApiGatewayAuthorizer
+          cors: true
     role: DeleteProductRole
 
 resources:
@@ -147,6 +165,45 @@ resources:
                     - dynamodb:DeleteItem
                   Resource:
                     - Fn::GetAtt: [ProductsTable, Arn]
+                    - !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/${self:service}-${opt:stage, 'dev'}-deleteProduct:*"
+
+    CognitoUserPool:
+      Type: AWS::Cognito::UserPool
+      Properties:
+        UserPoolName: ${self:service}-user-pool-${opt:stage, 'dev'}
+        AdminCreateUserConfig:
+          AllowAdminCreateUserOnly: true
+        AutoVerifiedAttributes:
+          - email
+        Schema:
+          - Name: email
+            Required: true
+            Mutable: true
+            AttributeDataType: String
+          - Name: custom:role
+            Required: false
+            Mutable: true
+            AttributeDataType: String
+
+    CognitoUserPoolClient:
+      Type: AWS::Cognito::UserPoolClient
+      Properties:
+        UserPoolId: !Ref CognitoUserPool
+        ClientName: ${self:service}-user-pool-client-${opt:stage, 'dev'}
+        GenerateSecret: false
+        ExplicitAuthFlows:
+          - ALLOW_USER_PASSWORD_AUTH
+          - ALLOW_REFRESH_TOKEN_AUTH
+
+    ApiGatewayAuthorizer:
+      Type: AWS::ApiGateway::Authorizer
+      Properties:
+        Name: cognito-authorizer
+        Type: COGNITO_USER_POOLS
+        IdentitySource: method.request.header.Authorization
+        RestApiId: !Ref ApiGatewayRestApi
+        ProviderARNs:
+          - !GetAtt CognitoUserPool.Arn
 
 plugins:
   - serverless-offline
