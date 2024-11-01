@@ -1,6 +1,6 @@
 {
-  "watch": ["./**/*.js", "./**/*.ts", "serverless.yml"],
-  "ext": "js,ts,yml",
-  "ignore": ["node_modules"],
+  "watch": ["./**/*.js", "./**/*.mjs", "./**/*.ts", "serverless.yml"],
+  "ext": "js,mjs,ts,yml",
+  "ignore": ["node_modules", "src/tests/**/*.ts"],
   "exec": "serverless offline --stage local"
 }

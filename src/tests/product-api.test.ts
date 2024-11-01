@@ -1,8 +1,12 @@
-const request = require("supertest");
-const {
+import supertest from "supertest";
+import dotenv from "dotenv";
+
+dotenv.config();
+
+import {
   CognitoIdentityProviderClient,
   InitiateAuthCommand,
-} = require("@aws-sdk/client-cognito-identity-provider");
+} from "@aws-sdk/client-cognito-identity-provider";
 
 describe("Product API", () => {
   // Configuration for both local and production environments
@@ -37,7 +41,7 @@ describe("Product API", () => {
 
   let adminToken;
   let viewerToken;
-  const productId = "testProductId432";
+  const productId = "testProductId412342";
   const productName = "Test Product";
 
   const getAuthToken = async (username, password) => {
@@ -49,7 +53,7 @@ describe("Product API", () => {
 
     const client = new CognitoIdentityProviderClient({ region: "us-east-1" });
     const params = {
-      AuthFlow: "USER_PASSWORD_AUTH",
+      AuthFlow: "USER_PASSWORD_AUTH" as const,
       ClientId: config.prod.clientId,
       AuthParameters: {
         USERNAME: username,
@@ -60,7 +64,7 @@ describe("Product API", () => {
     try {
       const command = new InitiateAuthCommand(params);
       const response = await client.send(command);
-      return response.AuthenticationResult.IdToken;
+      return response?.AuthenticationResult?.IdToken;
     } catch (error) {
       console.error("Authentication error:", error);
       throw error;
@@ -87,7 +91,7 @@ describe("Product API", () => {
 
   describe("Admin Operations", () => {
     it("should create a new product", async () => {
-      const response = await request(baseUrl)
+      const response = await supertest(baseUrl!)
         .post("/products")
         .send({ productId, name: productName })
         .set("Accept", "application/json")
@@ -98,7 +102,7 @@ describe("Product API", () => {
     });
 
     it("should update a product", async () => {
-      const response = await request(baseUrl)
+      const response = await supertest(baseUrl!)
         .put(`/products/${productId}`)
         .send({ name: "Updated Product" })
         .set("Accept", "application/json")
@@ -109,7 +113,7 @@ describe("Product API", () => {
     });
 
     it("should delete a product", async () => {
-      const response = await request(baseUrl)
+      const response = await supertest(baseUrl!)
         .delete(`/products/${productId}`)
         .set("Accept", "application/json")
         .set("Authorization", `Bearer ${adminToken}`);
@@ -125,14 +129,14 @@ describe("Product API", () => {
   describe("Viewer Operations", () => {
     beforeEach(async () => {
       // Ensure there's a product to view
-      await request(baseUrl)
+      await supertest(baseUrl!)
         .post("/products")
         .send({ productId, name: productName })
         .set("Authorization", `Bearer ${adminToken}`);
     });
 
     it("should retrieve a product by ID", async () => {
-      const response = await request(baseUrl)
+      const response = await supertest(baseUrl!)
         .get(`/products/${productId}`)
         .set("Accept", "application/json")
         .set("Authorization", `Bearer ${viewerToken}`);
@@ -142,7 +146,7 @@ describe("Product API", () => {
     });
 
     it("should not allow product creation", async () => {
-      const response = await request(baseUrl)
+      const response = await supertest(baseUrl!)
         .post("/products")
         .send({ productId: "newProduct", name: "New Product" })
         .set("Accept", "application/json")
@@ -153,7 +157,7 @@ describe("Product API", () => {
     });
 
     it("should not allow product updates", async () => {
-      const response = await request(baseUrl)
+      const response = await supertest(baseUrl!)
         .put(`/products/${productId}`)
         .send({ name: "Viewer Update Attempt" })
         .set("Accept", "application/json")
@@ -164,7 +168,7 @@ describe("Product API", () => {
     });
 
     it("should not allow product deletion", async () => {
-      const response = await request(baseUrl)
+      const response = await supertest(baseUrl!)
         .delete(`/products/${productId}`)
         .set("Accept", "application/json")
         .set("Authorization", `Bearer ${viewerToken}`);
@@ -176,7 +180,7 @@ describe("Product API", () => {
 
   describe("Unauthorized Operations", () => {
     it("should reject requests without authentication", async () => {
-      const response = await request(baseUrl)
+      const response = await supertest(baseUrl!)
         .get(`/products/${productId}`)
         .set("Accept", "application/json");
 
@@ -184,7 +188,7 @@ describe("Product API", () => {
     });
 
     it("should reject requests with invalid token", async () => {
-      const response = await request(baseUrl)
+      const response = await supertest(baseUrl!)
         .get(`/products/${productId}`)
         .set("Accept", "application/json")
         .set("Authorization", "Bearer invalid-token");
@@ -195,7 +199,7 @@ describe("Product API", () => {
 
   afterAll(async () => {
     // Cleanup: Delete the test product using admin token
-    await request(baseUrl)
+    await supertest(baseUrl!)
       .delete(`/products/${productId}`)
       .set("Authorization", `Bearer ${adminToken}`)
       .set("Accept", "application/json");

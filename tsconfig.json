@@ -1,0 +1,27 @@
+{
+  "compilerOptions": {
+    "preserveConstEnums": true,
+    "strictNullChecks": true,
+    "sourceMap": true,
+    "allowJs": true,
+    "target": "es2020",           // Updated from es5 for modern Node.js
+    "module": "es2020",           // Added for ESM support
+    "outDir": ".build",
+    "moduleResolution": "node",
+    "esModuleInterop": true,      // Added for better import compatibility
+    "lib": [
+      "es2020"                    // Updated from es2015
+    ],
+    "rootDir": "./",
+    "types": ["jest", "node"],    // Added for TypeScript type support
+    "skipLibCheck": true,         // Added to avoid issues with third-party packages
+    "forceConsistentCasingInFileNames": true
+  },
+  "include": [
+    "src/**/*"                    // Added to specify source files
+  ],
+  "exclude": [
+    "node_modules",
+    ".build"
+  ]
+}

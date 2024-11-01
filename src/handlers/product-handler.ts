@@ -1,47 +1,15 @@
-const { DynamoDBClient } = require("@aws-sdk/client-dynamodb");
-const {
-  DynamoDBDocumentClient,
+import {
   GetCommand,
   PutCommand,
   UpdateCommand,
   DeleteCommand,
-} = require("@aws-sdk/lib-dynamodb");
+} from "@aws-sdk/lib-dynamodb";
+import { docClient } from "./../clients/db";
+import { verifyUserRole } from "../auth/verifyUserRole";
 
 const PRODUCTS_TABLE = process.env.PRODUCTS_TABLE;
-const IS_OFFLINE = process.env.IS_OFFLINE === "true";
 
-// Configure the DynamoDB client to connect to DynamoDB Local when offline
-const client = new DynamoDBClient({
-  region: "us-east-1",
-  endpoint: IS_OFFLINE ? "http://localhost:8000" : undefined,
-});
-
-const docClient = DynamoDBDocumentClient.from(client);
-
-const verifyUserRole = (event, allowedRoles) => {
-  try {
-    // For local testing
-    if (IS_OFFLINE) {
-      const authHeader = event.headers.Authorization || "";
-      const token = authHeader.split(" ")[1];
-      if (!token) return false;
-
-      const decodedToken = JSON.parse(token);
-      const userRole = decodedToken.claims["custom:custom:role"];
-      return allowedRoles.includes(userRole);
-    }
-
-    // For production Cognito
-    const claims = event.requestContext.authorizer.claims;
-    const userRole = claims["custom:custom:role"];
-    return allowedRoles.includes(userRole);
-  } catch (error) {
-    console.error("Error verifying user role:", error);
-    return false;
-  }
-};
-
-exports.getProductById = async (event) => {
+export const getProductById = async (event) => {
   // Allow both admin and viewer roles to get products
   if (!verifyUserRole(event, ["admin", "viewer"])) {
     return {
@@ -83,7 +51,7 @@ exports.getProductById = async (event) => {
   }
 };
 
-exports.createProduct = async (event) => {
+export const createProduct = async (event) => {
   // Only allow admin role to create products
   if (!verifyUserRole(event, ["admin"])) {
     return {
@@ -123,7 +91,7 @@ exports.createProduct = async (event) => {
   }
 };
 
-exports.updateProduct = async (event) => {
+export const updateProduct = async (event) => {
   // Only allow admin role to update products
   if (!verifyUserRole(event, ["admin"])) {
     return {
@@ -148,7 +116,7 @@ exports.updateProduct = async (event) => {
     UpdateExpression: "set #name = :name",
     ExpressionAttributeNames: { "#name": "name" },
     ExpressionAttributeValues: { ":name": name },
-    ReturnValues: "ALL_NEW",
+    ReturnValues: "ALL_NEW" as const,
   };
 
   try {
@@ -168,7 +136,7 @@ exports.updateProduct = async (event) => {
   }
 };
 
-exports.deleteProduct = async (event) => {
+export const deleteProduct = async (event) => {
   // Only allow admin role to delete products
   if (!verifyUserRole(event, ["admin"])) {
     return {

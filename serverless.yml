@@ -15,13 +15,15 @@ provider:
   runtime: nodejs20.x
   environment:
     PRODUCTS_TABLE: ${self:custom.tableName.${opt:stage, 'dev'}}
+    # ORDERS_TABLE: ${self:custom.ordersTableName.${opt:stage, 'dev'}}
+    # ORDERS_TOPIC_ARN: !Ref OrdersTopic
     IS_OFFLINE: "${opt:stage, 'dev'}` == 'local' ? 'true' : 'false'"
     USER_POOL_ID: !Ref CognitoUserPool
     USER_POOL_CLIENT_ID: !Ref CognitoUserPoolClient
 
 functions:
   getProductById:
-    handler: handler.getProductById
+    handler: src/handlers/product-handler.getProductById
     events:
       - http:
           path: products/{productId}
@@ -33,7 +35,7 @@ functions:
     role: GetProductRole
 
   createProduct:
-    handler: handler.createProduct
+    handler: src/handlers/product-handler.createProduct
     events:
       - http:
           path: products
@@ -45,7 +47,7 @@ functions:
     role: CreateProductRole
 
   updateProduct:
-    handler: handler.updateProduct
+    handler: src/handlers/product-handler.updateProduct
     events:
       - http:
           path: products/{productId}
@@ -57,7 +59,7 @@ functions:
     role: UpdateProductRole
 
   deleteProduct:
-    handler: handler.deleteProduct
+    handler: src/handlers/product-handler.deleteProduct
     events:
       - http:
           path: products/{productId}
@@ -67,6 +69,42 @@ functions:
             authorizerId: !Ref ApiGatewayAuthorizer
           cors: true
     role: DeleteProductRole
+
+  # createOrder:
+  #   handler: src/handlers/order-handler.createOrder
+  #   events:
+  #     - http:
+  #         path: orders
+  #         method: post
+  #         authorizer:
+  #           type: COGNITO_USER_POOLS
+  #           authorizerId: !Ref ApiGatewayAuthorizer
+  #         cors: true
+  #   role: OrdersRole
+
+  # getOrdersByUser:
+  #   handler: src/handlers/order-handler.getOrdersByUser
+  #   events:
+  #     - http:
+  #         path: orders
+  #         method: get
+  #         authorizer:
+  #           type: COGNITO_USER_POOLS
+  #           authorizerId: !Ref ApiGatewayAuthorizer
+  #         cors: true
+  #   role: OrdersRole
+
+  # updateOrderStatus:
+  #   handler: src/handlers/order-handler.updateOrderStatus
+  #   events:
+  #     - http:
+  #         path: orders/{orderId}/status
+  #         method: put
+  #         authorizer:
+  #           type: COGNITO_USER_POOLS
+  #           authorizerId: !Ref ApiGatewayAuthorizer
+  #         cors: true
+  #   role: OrdersRole
 
 resources:
   Resources:
@@ -182,6 +220,63 @@ resources:
                     - Fn::GetAtt: [ProductsTable, Arn]
                     - !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/${self:service}-${opt:stage, 'dev'}-deleteProduct:*"
 
+    # OrdersTable:
+    #   Type: AWS::DynamoDB::Table
+    #   Properties:
+    #     AttributeDefinitions:
+    #       - AttributeName: orderId
+    #         AttributeType: S
+    #       - AttributeName: userId
+    #         AttributeType: S
+    #     KeySchema:
+    #       - AttributeName: orderId
+    #         KeyType: HASH
+    #     GlobalSecondaryIndexes:
+    #       - IndexName: UserIdIndex
+    #         KeySchema:
+    #           - AttributeName: userId
+    #             KeyType: HASH
+    #         Projection:
+    #           ProjectionType: ALL
+    #     BillingMode: PAY_PER_REQUEST
+    #     TableName: ${self:custom.ordersTableName.${opt:stage, 'dev'}}
+
+    # OrdersTopic:
+    #   Type: AWS::SNS::Topic
+    #   Properties:
+    #     TopicName: ${self:service}-orders-${opt:stage, 'dev'}
+
+    # OrdersRole:
+    #   Type: AWS::IAM::Role
+    #   Properties:
+    #     AssumeRolePolicyDocument:
+    #       Version: "2012-10-17"
+    #       Statement:
+    #         - Effect: Allow
+    #           Principal:
+    #             Service: lambda.amazonaws.com
+    #           Action: sts:AssumeRole
+    #     Policies:
+    #       - PolicyName: OrdersPolicy
+    #         PolicyDocument:
+    #           Version: "2012-10-17"
+    #           Statement:
+    #             - Effect: Allow
+    #               Action:
+    #                 - dynamodb:PutItem
+    #                 - dynamodb:GetItem
+    #                 - dynamodb:Query
+    #                 - dynamodb:UpdateItem
+    #                 - sns:Publish
+    #                 - logs:CreateLogGroup
+    #                 - logs:CreateLogStream
+    #                 - logs:PutLogEvents
+    #               Resource:
+    #                 - !GetAtt OrdersTable.Arn
+    #                 - !Sub "${OrdersTable.Arn}/index/*"
+    #                 - !Ref OrdersTopic
+    #                 - !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/${self:service}-${opt:stage, 'dev'}-*:*"
+
     CognitoUserPool:
       Type: AWS::Cognito::UserPool
       Properties:
@@ -228,3 +323,7 @@ custom:
     dev: products-table-dev # Table name for development (cloud)
     prod: products-table-prod # Table name for production (cloud)
     local: products-table-local # Table name for local development
+  # ordersTableName:
+  #   dev: orders-table-dev
+  #   prod: orders-table-prod
+  #   local: orders-table-local
