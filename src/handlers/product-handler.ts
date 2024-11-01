@@ -6,10 +6,14 @@ import {
 } from "@aws-sdk/lib-dynamodb";
 import { docClient } from "./../clients/db";
 import { verifyUserRole } from "../auth/verifyUserRole";
+import { Handler } from "aws-lambda";
+import { APIGatewayProxyEvent, APIGatewayProxyResult } from "aws-lambda";
 
 const PRODUCTS_TABLE = process.env.PRODUCTS_TABLE;
 
-export const getProductById = async (event) => {
+export const getProductById: Handler = async (
+  event: APIGatewayProxyEvent
+): Promise<APIGatewayProxyResult> => {
   // Allow both admin and viewer roles to get products
   if (!verifyUserRole(event, ["admin", "viewer"])) {
     return {
@@ -18,7 +22,7 @@ export const getProductById = async (event) => {
     };
   }
 
-  const productId = event.pathParameters.productId;
+  const productId = event.pathParameters?.productId;
 
   const params = {
     TableName: PRODUCTS_TABLE,
@@ -51,7 +55,9 @@ export const getProductById = async (event) => {
   }
 };
 
-export const createProduct = async (event) => {
+export const createProduct: Handler = async (
+  event: APIGatewayProxyEvent
+): Promise<APIGatewayProxyResult> => {
   // Only allow admin role to create products
   if (!verifyUserRole(event, ["admin"])) {
     return {
@@ -60,7 +66,7 @@ export const createProduct = async (event) => {
     };
   }
 
-  const { productId, name } = JSON.parse(event.body);
+  const { productId, name } = JSON.parse(event.body ?? "");
 
   if (typeof productId !== "string" || typeof name !== "string") {
     return {
@@ -91,7 +97,9 @@ export const createProduct = async (event) => {
   }
 };
 
-export const updateProduct = async (event) => {
+export const updateProduct: Handler = async (
+  event: APIGatewayProxyEvent
+): Promise<APIGatewayProxyResult> => {
   // Only allow admin role to update products
   if (!verifyUserRole(event, ["admin"])) {
     return {
@@ -100,8 +108,8 @@ export const updateProduct = async (event) => {
     };
   }
 
-  const { productId } = event.pathParameters;
-  const { name } = JSON.parse(event.body);
+  const productId = event.pathParameters?.productId;
+  const { name } = JSON.parse(event.body ?? "");
 
   if (typeof name !== "string") {
     return {
@@ -136,7 +144,9 @@ export const updateProduct = async (event) => {
   }
 };
 
-export const deleteProduct = async (event) => {
+export const deleteProduct: Handler = async (
+  event: APIGatewayProxyEvent
+): Promise<APIGatewayProxyResult> => {
   // Only allow admin role to delete products
   if (!verifyUserRole(event, ["admin"])) {
     return {
@@ -145,7 +155,7 @@ export const deleteProduct = async (event) => {
     };
   }
 
-  const { productId } = event.pathParameters;
+  const productId = event.pathParameters?.productId;
 
   const params = {
     TableName: PRODUCTS_TABLE,

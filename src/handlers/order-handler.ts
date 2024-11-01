@@ -1,16 +1,31 @@
 import { PutCommand, QueryCommand, UpdateCommand } from "@aws-sdk/lib-dynamodb";
 import { docClient } from "../clients/db";
-import { SNSClient, PublishCommand } from "@aws-sdk/client-sns";
+import { PublishCommand } from "@aws-sdk/client-sns";
 import { v4 as uuidv4 } from "uuid";
+import { Handler } from "aws-lambda";
+import { APIGatewayProxyEvent, APIGatewayProxyResult } from "aws-lambda";
+import { sns } from "../clients/sns";
 
 const ORDERS_TABLE = process.env.ORDERS_TABLE;
 const ORDERS_TOPIC_ARN = process.env.ORDERS_TOPIC_ARN;
+const IS_OFFLINE = process.env.IS_OFFLINE === "true";
+const TEST_USER_ID = "test-user-123"; // For local development only
 
-const sns = new SNSClient({ region: "us-east-1" });
+export const createOrder: Handler = async (
+  event: APIGatewayProxyEvent
+): Promise<APIGatewayProxyResult> => {
+  const userId = IS_OFFLINE
+    ? TEST_USER_ID
+    : event.requestContext.authorizer?.claims?.sub;
 
-export const createOrder = async (event) => {
-  const userId = event.requestContext.authorizer.claims.sub;
-  const { products } = JSON.parse(event.body);
+  if (!userId) {
+    return {
+      statusCode: 401,
+      body: JSON.stringify({ error: "Unauthorized - User ID not found" }),
+    };
+  }
+
+  const { products } = JSON.parse(event.body ?? "");
 
   if (!Array.isArray(products) || products.length === 0) {
     return {
@@ -61,8 +76,19 @@ export const createOrder = async (event) => {
   }
 };
 
-export const getOrdersByUser = async (event) => {
-  const userId = event.requestContext.authorizer.claims.sub;
+export const getOrdersByUser: Handler = async (
+  event: APIGatewayProxyEvent
+): Promise<APIGatewayProxyResult> => {
+  const userId = IS_OFFLINE
+    ? TEST_USER_ID
+    : event.requestContext.authorizer?.claims?.sub;
+
+  if (!userId) {
+    return {
+      statusCode: 401,
+      body: JSON.stringify({ error: "Unauthorized - User ID not found" }),
+    };
+  }
 
   try {
     const { Items } = await docClient.send(
@@ -89,10 +115,22 @@ export const getOrdersByUser = async (event) => {
   }
 };
 
-export const updateOrderStatus = async (event) => {
-  const { orderId } = event.pathParameters;
-  const { status } = JSON.parse(event.body);
-  const userId = event.requestContext.authorizer.claims.sub;
+export const updateOrderStatus: Handler = async (
+  event: APIGatewayProxyEvent
+): Promise<APIGatewayProxyResult> => {
+  const userId = IS_OFFLINE
+    ? TEST_USER_ID
+    : event.requestContext.authorizer?.claims?.sub;
+
+  if (!userId) {
+    return {
+      statusCode: 401,
+      body: JSON.stringify({ error: "Unauthorized - User ID not found" }),
+    };
+  }
+
+  const { orderId } = event.pathParameters ?? {};
+  const { status } = JSON.parse(event.body ?? "");
 
   if (!["PENDING", "PROCESSING", "COMPLETED", "CANCELLED"].includes(status)) {
     return {

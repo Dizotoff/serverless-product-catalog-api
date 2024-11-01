@@ -1,91 +1,27 @@
 import supertest from "supertest";
-import dotenv from "dotenv";
-
-dotenv.config();
-
-import {
-  CognitoIdentityProviderClient,
-  InitiateAuthCommand,
-} from "@aws-sdk/client-cognito-identity-provider";
+import { testConfig, isLocal, baseUrl, getAuthToken } from "./test-utils";
 
 describe("Product API", () => {
-  // Configuration for both local and production environments
-  const config = {
-    local: {
-      baseUrl: "http://localhost:3000/local",
-      // Mock tokens for local testing
-      adminToken: JSON.stringify({
-        claims: {
-          "custom:custom:role": "admin",
-        },
-      }),
-      viewerToken: JSON.stringify({
-        claims: {
-          "custom:custom:role": "viewer",
-        },
-      }),
-    },
-    prod: {
-      baseUrl: process.env.API_URL,
-      userPoolId: process.env.COGNITO_USER_POOL_ID,
-      clientId: process.env.COGNITO_CLIENT_ID,
-      adminUsername: process.env.ADMIN_USERNAME,
-      adminPassword: process.env.ADMIN_PASSWORD,
-      viewerUsername: process.env.VIEWER_USERNAME,
-      viewerPassword: process.env.VIEWER_PASSWORD,
-    },
-  };
-
-  const isLocal = process.env.IS_OFFLINE === "true";
-  const { baseUrl } = isLocal ? config.local : config.prod;
-
   let adminToken;
   let viewerToken;
   const productId = "testProductId412342";
   const productName = "Test Product";
 
-  const getAuthToken = async (username, password) => {
-    if (isLocal) {
-      return config.local[
-        username === config.prod.adminUsername ? "adminToken" : "viewerToken"
-      ];
-    }
-
-    const client = new CognitoIdentityProviderClient({ region: "us-east-1" });
-    const params = {
-      AuthFlow: "USER_PASSWORD_AUTH" as const,
-      ClientId: config.prod.clientId,
-      AuthParameters: {
-        USERNAME: username,
-        PASSWORD: password,
-      },
-    };
-
-    try {
-      const command = new InitiateAuthCommand(params);
-      const response = await client.send(command);
-      return response?.AuthenticationResult?.IdToken;
-    } catch (error) {
-      console.error("Authentication error:", error);
-      throw error;
-    }
-  };
-
   beforeAll(async () => {
     if (!isLocal) {
-      // Get real tokens for production testing
       adminToken = await getAuthToken(
-        config.prod.adminUsername,
-        config.prod.adminPassword
+        testConfig.prod.adminUsername!,
+        testConfig.prod.adminPassword!,
+        "admin"
       );
       viewerToken = await getAuthToken(
-        config.prod.viewerUsername,
-        config.prod.viewerPassword
+        testConfig.prod.viewerUsername!,
+        testConfig.prod.viewerPassword!,
+        "viewer"
       );
     } else {
-      // Use mock tokens for local testing
-      adminToken = config.local.adminToken;
-      viewerToken = config.local.viewerToken;
+      adminToken = testConfig.local.adminToken;
+      viewerToken = testConfig.local.viewerToken;
     }
   });
 
