@@ -20,6 +20,7 @@ provider:
     IS_OFFLINE: "${opt:stage, 'dev'}` == 'local' ? 'true' : 'false'"
     USER_POOL_ID: !Ref CognitoUserPool
     USER_POOL_CLIENT_ID: !Ref CognitoUserPoolClient
+    ORDERS_QUEUE_URL: !Ref OrdersQueue
 
 functions:
   getProductById:
@@ -105,6 +106,24 @@ functions:
             authorizerId: !Ref ApiGatewayAuthorizer
           cors: true
     role: OrdersRole
+
+  processOrder: # Name of the Lambda function
+    handler: src/handlers/order-handler.processOrder # Path to the function code (file.functionName)
+    events: # List of events that trigger this function
+      - sqs: # Defines an SQS event source
+          arn: !GetAtt OrdersQueue.Arn # Gets the ARN of the OrdersQueue we defined in Resources
+          batchSize: 1 # Process only 1 message at a time
+          functionResponseType: ReportBatchItemFailures # Enables partial batch responses for error handling
+    role: OrderProcessorRole # IAM role that defines the function's permissions
+    reservedConcurrency: 1 # Ensures only one instance runs at a time
+
+  getOrder:
+    handler: src/handlers/order-handler.getOrder
+    events:
+      - http:
+          path: /orders/{orderId}
+          method: get
+          authorizer: aws_iam
 
 resources:
   Resources:
@@ -317,7 +336,72 @@ resources:
         ProviderARNs:
           - !GetAtt CognitoUserPool.Arn
 
+    OrdersQueue:
+      Type: AWS::SQS::Queue
+      Properties:
+        QueueName: ${self:service}-orders-queue-${opt:stage, 'dev'}
+        VisibilityTimeout: 300
+        RedrivePolicy:
+          deadLetterTargetArn: !GetAtt OrdersDLQ.Arn
+          maxReceiveCount: 3
+
+    OrdersDLQ:
+      Type: AWS::SQS::Queue
+      Properties:
+        QueueName: ${self:service}-orders-dlq-${opt:stage, 'dev'}
+
+    OrderProcessorRole:
+      Type: AWS::IAM::Role
+      Properties:
+        AssumeRolePolicyDocument:
+          Version: "2012-10-17"
+          Statement:
+            - Effect: Allow
+              Principal:
+                Service: lambda.amazonaws.com
+              Action: sts:AssumeRole
+        Policies:
+          - PolicyName: OrderProcessorPolicy
+            PolicyDocument:
+              Version: "2012-10-17"
+              Statement:
+                - Effect: Allow
+                  Action:
+                    - sqs:ReceiveMessage
+                    - sqs:DeleteMessage
+                    - sqs:GetQueueAttributes
+                    - dynamodb:UpdateItem
+                    - sns:Publish
+                    - logs:CreateLogGroup
+                    - logs:CreateLogStream
+                    - logs:PutLogEvents
+                  Resource:
+                    - !GetAtt OrdersQueue.Arn
+                    - !GetAtt OrdersDLQ.Arn
+                    - !GetAtt OrdersTable.Arn
+                    - !Ref OrdersTopic
+                    - !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/${self:service}-${opt:stage, 'dev'}-processOrder:*"
+
+    QueueLengthAlarm:
+      Type: AWS::CloudWatch::Alarm
+      Properties:
+        AlarmName: ${self:service}-queue-length-${opt:stage, 'dev'}
+        AlarmDescription: Alert when queue length exceeds threshold
+        MetricName: ApproximateNumberOfMessagesVisible
+        Namespace: AWS/SQS
+        Dimensions:
+          - Name: QueueName
+            Value: !GetAtt OrdersQueue.QueueName
+        Statistic: Average
+        Period: 300
+        EvaluationPeriods: 1
+        Threshold: 100
+        ComparisonOperator: GreaterThanThreshold
+        AlarmActions:
+          - !Ref OrdersTopic
+
 plugins:
+  - serverless-offline-sqs
   - serverless-offline
 
 custom:
@@ -329,3 +413,15 @@ custom:
     dev: orders-table-dev
     prod: orders-table-prod
     local: orders-table-local
+  serverless-offline-sqs:
+    autoCreate: true
+    apiVersion: "2012-11-05"
+    endpoint: http://localhost:9324
+    region: us-east-1
+    accessKeyId: dummy
+    secretAccessKey: dummy
+    skipCacheInvalidation: false
+    debug: true
+    queues:
+      - name: ${self:service}-orders-queue-${opt:stage, 'dev'}
+        url: http://localhost:9324/queue/${self:service}-orders-queue-${opt:stage, 'dev'}

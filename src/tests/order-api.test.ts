@@ -1,5 +1,11 @@
 import supertest from "supertest";
-import { testConfig, isLocal, baseUrl, getAuthToken } from "./test-utils";
+import {
+  testConfig,
+  isLocal,
+  baseUrl,
+  getAuthToken,
+  waitForOrderStatus,
+} from "./test-utils";
 
 describe("Order API", () => {
   let customerToken;
@@ -97,5 +103,69 @@ describe("Order API", () => {
         "Products array is required"
       );
     });
+  });
+
+  describe("Order Processing Lifecycle", () => {
+    it("should process an order through the complete lifecycle", async () => {
+      const createResponse = await supertest(baseUrl!)
+        .post("/orders")
+        .send(testOrder)
+        .set("Accept", "application/json")
+        .set("Authorization", `Bearer ${customerToken}`);
+
+      expect(createResponse.status).toBe(201);
+      expect(createResponse.body).toHaveProperty("orderId");
+      expect(createResponse.body).toHaveProperty("status", "PENDING");
+
+      const orderId = createResponse.body.orderId;
+
+      const completedOrder = await waitForOrderStatus(
+        orderId,
+        "COMPLETED",
+        10,
+        customerToken
+      );
+      expect(completedOrder.status).toBe("COMPLETED");
+    }, 60000);
+
+    it("should handle multiple orders sequentially", async () => {
+      // Create three orders in quick succession
+      const orderPromises = Array(3)
+        .fill(null)
+        .map(() =>
+          supertest(baseUrl!)
+            .post("/orders")
+            .send(testOrder)
+            .set("Accept", "application/json")
+            .set("Authorization", `Bearer ${customerToken}`)
+        );
+
+      const orders = await Promise.all(orderPromises);
+      const orderIds = orders.map((response) => response.body.orderId);
+
+      // Wait for all orders to complete
+      const completedOrders = await Promise.all(
+        orderIds.map((id) =>
+          waitForOrderStatus(id, "COMPLETED", 10, customerToken)
+        )
+      );
+
+      // Verify all orders completed successfully
+      completedOrders.forEach((order) => {
+        expect(order.status).toBe("COMPLETED");
+      });
+
+      // Only verify timestamps if they exist
+      const timestamps = completedOrders
+        .map((order) => order.completedAt)
+        .filter(Boolean)
+        .map((date) => new Date(date).getTime());
+
+      if (timestamps.length > 1) {
+        for (let i = 1; i < timestamps.length; i++) {
+          expect(timestamps[i]).toBeGreaterThan(timestamps[i - 1]);
+        }
+      }
+    }, 120000);
   });
 });

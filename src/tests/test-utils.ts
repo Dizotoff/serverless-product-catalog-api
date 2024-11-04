@@ -3,6 +3,7 @@ import {
   CognitoIdentityProviderClient,
   InitiateAuthCommand,
 } from "@aws-sdk/client-cognito-identity-provider";
+import supertest from "supertest";
 
 dotenv.config();
 
@@ -73,4 +74,34 @@ export const getAuthToken = async (
     console.error("Authentication error:", error);
     throw error;
   }
+};
+
+export const waitForOrderStatus = async (
+  orderId: string,
+  expectedStatus: string,
+  maxAttempts = 10,
+  customerToken: string
+) => {
+  for (let i = 0; i < maxAttempts; i++) {
+    const response = await supertest(baseUrl!)
+      .get(`/orders/${orderId}`)
+      .set("Authorization", `Bearer ${customerToken}`);
+
+    if (response.status !== 200) {
+      console.error(
+        `Failed to fetch order. Status: ${response.status}`,
+        response.body
+      );
+    }
+
+    if (response.body.status === expectedStatus) {
+      return response.body;
+    }
+
+    // Increase wait time between checks to 2 seconds
+    await new Promise((resolve) => setTimeout(resolve, 2000));
+  }
+  throw new Error(
+    `Order did not reach ${expectedStatus} status after ${maxAttempts} attempts`
+  );
 };
