@@ -10,7 +10,7 @@ A serverless e-commerce boilerplate API built with TypeScript and the Serverless
 - **Cognito**: User authentication and role-based access control
 - **SNS**: Real-time notifications for order events
 - **SQS**: Asynchronous order processing queue with DLQ
-- **CloudWatch**: Monitoring and alerting for queue metrics
+- **CloudWatch**: Monitoring and alerting
 
 ## Key Features
 
