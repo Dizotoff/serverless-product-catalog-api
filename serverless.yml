@@ -115,7 +115,6 @@ functions:
           batchSize: 1 # Process only 1 message at a time
           functionResponseType: ReportBatchItemFailures # Enables partial batch responses for error handling
     role: OrderProcessorRole # IAM role that defines the function's permissions
-    reservedConcurrency: 1 # Ensures only one instance runs at a time
 
   getOrder:
     handler: src/handlers/order-handler.getOrder

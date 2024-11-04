@@ -1,6 +1,6 @@
 # Serverless Product Catalog API
 
-A comprehensive serverless e-commerce API built with TypeScript and the Serverless Framework, featuring product management, authentication, order processing, and real-time notifications.
+A serverless e-commerce boilerplate API built with TypeScript and the Serverless Framework, featuring product management, authentication, order processing, and real-time notifications. Build for educational purposes.
 
 ## Architecture Overview
 
